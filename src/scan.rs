@@ -10,8 +10,18 @@ const SUBDIRECTORY_COUNT_THRESHOLD: usize = 10; // threshold for parallel scanni
 const THRESHOLD_FACTOR: f64 = 0.0001; // 0.01% of total size
 const MAX_CONCURRENT_THREADS: usize = 8; // limit for concurrent threads
 
-pub fn scan_folder_hierarchy(root_path: &Path) -> Result<FolderNode, Box<dyn std::error::Error>> {
+pub fn scan_folder_hierarchy<F>(
+    root_path: &Path,
+    mut progress_callback: Option<F>,
+) -> Result<FolderNode, Box<dyn std::error::Error>>
+where
+    F: FnMut(i32, &str),
+{
     let start_time = std::time::Instant::now();
+
+    if let Some(callback) = &mut progress_callback {
+        callback(5, "Initializing scan...");
+    }
 
     let root_name = root_path
         .file_name()
@@ -21,8 +31,22 @@ pub fn scan_folder_hierarchy(root_path: &Path) -> Result<FolderNode, Box<dyn std
 
     println!("Starting scan for: {}", root_path.to_string_lossy());
     let mut root_node = FolderNode::new(root_name, root_path.to_path_buf(), 0);
-    let total_size = fast_parallel_scan(&mut root_node)?;
+
+    if let Some(callback) = &mut progress_callback {
+        callback(15, "Starting directory scan...");
+    }
+
+    let total_size = fast_parallel_scan(&mut root_node, &mut progress_callback)?;
+
+    if let Some(callback) = &mut progress_callback {
+        callback(70, "Calculating thresholds...");
+    }
+
     let threshold = (total_size as f64 * THRESHOLD_FACTOR) as u64;
+
+    if let Some(callback) = &mut progress_callback {
+        callback(80, "Filtering hierarchy...");
+    }
 
     println!("Scan completed in {:?}", start_time.elapsed());
     println!(
@@ -37,6 +61,11 @@ pub fn scan_folder_hierarchy(root_path: &Path) -> Result<FolderNode, Box<dyn std
     );
 
     filter_hierarchy(&mut root_node, threshold);
+
+    if let Some(callback) = &mut progress_callback {
+        callback(95, "Finalizing results...");
+    }
+
     Ok(root_node)
 }
 
@@ -75,9 +104,19 @@ fn calculate_directory_size(dir_path: &Path) -> Result<u64, Box<dyn std::error::
     Ok(total_size)
 }
 
-fn fast_parallel_scan(parent_node: &mut FolderNode) -> Result<u64, Box<dyn std::error::Error>> {
+fn fast_parallel_scan<F>(
+    parent_node: &mut FolderNode,
+    progress_callback: &mut Option<F>,
+) -> Result<u64, Box<dyn std::error::Error>>
+where
+    F: FnMut(i32, &str),
+{
     let (tx, rx) = mpsc::channel();
     let path = parent_node.path.clone();
+
+    if let Some(callback) = progress_callback {
+        callback(25, &format!("Scanning: {}", path.display()));
+    }
 
     // spawn worker thread for this directory
     thread::spawn(move || {
@@ -91,6 +130,10 @@ fn fast_parallel_scan(parent_node: &mut FolderNode) -> Result<u64, Box<dyn std::
         .map_err(|e| -> Box<dyn std::error::Error> { e })?;
     parent_node.size = total_size;
 
+    if let Some(callback) = progress_callback {
+        callback(40, "Processing child directories...");
+    }
+
     // process children
     for (child_path, child_size) in children_data {
         let child_name = child_path
@@ -103,10 +146,17 @@ fn fast_parallel_scan(parent_node: &mut FolderNode) -> Result<u64, Box<dyn std::
 
         // recursively scan big children
         if child_size > SCAN_THRESHOLD {
-            fast_parallel_scan(&mut child_node)?;
+            if let Some(callback) = progress_callback {
+                callback(50, &format!("Deep scanning: {}", child_path.display()));
+            }
+            fast_parallel_scan(&mut child_node, progress_callback)?;
         }
 
         parent_node.add_child(child_node);
+    }
+
+    if let Some(callback) = progress_callback {
+        callback(65, "Finalizing directory structure...");
     }
 
     Ok(total_size)
@@ -134,6 +184,7 @@ fn scan_directory_fast(
             if let Ok(metadata) = entry.metadata() {
                 file_size += metadata.len();
             }
+            // TODO: set progress bar based on current child vs total
         } else if path.is_dir() {
             directories.push(path);
         }
