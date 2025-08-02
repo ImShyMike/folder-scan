@@ -140,11 +140,6 @@ fn main() {
                 Ok(mut tree) => {
                     tree.sort_children();
                     treemap.borrow_mut().set_data(&tree);
-
-                    update_progress_bar(&mut progress_scan.borrow_mut(), 100);
-                    status_text_scan
-                        .borrow_mut()
-                        .set_label("Scan completed successfully!");
                 }
                 Err(e) => {
                     status_text_scan

@@ -32,15 +32,21 @@ where
 
     println!("Scan completed in {:?}", start_time.elapsed());
     println!(
-        "Total directory size: {} ({})",
+        "Total directory size: {} bytes ({})",
         total_size,
         format_size(total_size)
     );
-    println!(
-        "Threshold for hierarchy: {} ({})",
-        threshold,
-        format_size(threshold)
-    );
+
+    if let Some(callback) = &mut progress_callback {
+        callback(
+            100,
+            &format!(
+                "Scanned {} of files in {:.2} seconds!",
+                format_size(total_size),
+                start_time.elapsed().as_secs_f64()
+            ),
+        );
+    }
 
     filter_hierarchy(&mut root_node, threshold);
 

@@ -136,10 +136,15 @@ impl TreemapWidget {
             };
             set_font(Font::Helvetica, font_size);
 
-            // draw text in the bottom right of the rectangle
-            let tx = rect.x + rect.width - 4;
-            let ty = rect.y + rect.height - 2;
-            draw_text2(&rect.name, tx, ty, 0, 0, Align::BottomRight);
+            // check if the text fits using proper text measurement
+            let (text_width, _text_height) = measure(&rect.name, false);
+
+            if text_width <= rect.width - 8 {
+                // draw text in the bottom right of the rectangle
+                let tx = rect.x + rect.width - 4;
+                let ty = rect.y + rect.height - 2;
+                draw_text2(&rect.name, tx, ty, 0, 0, Align::BottomRight);
+            }
         }
     }
 
