@@ -4,6 +4,7 @@ use fltk::{prelude::*, *};
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
+use open;
 
 use crate::folder::FolderNode;
 use crate::theme::*;
@@ -324,12 +325,9 @@ impl TreemapWidget {
                 let data_ref = data.borrow();
                 if let Some(i) = data_ref.hovered_rect {
                     if let Some(rect) = data_ref.rects.get(i) {
-                        println!(
-                            "Clicked on: '{}' at '{}' (size: {})",
-                            rect.name,
-                            rect.path.display(),
-                            format_size(rect.size)
-                        );
+                        open::that(rect.path.clone()).unwrap_or_else(|_| {
+                            eprintln!("Failed to open path: {}", rect.path.display());
+                        });
                     }
                 }
 
