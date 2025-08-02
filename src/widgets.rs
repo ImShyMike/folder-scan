@@ -495,9 +495,12 @@ impl TreemapWidget {
         while start_idx < children.len() {
             // calculate remaining total size for items that haven't been placed yet
             let remaining_total_size: u64 = folder_sizes[start_idx..].iter().sum();
-            
-            let row_end =
-                self.find_best_row(&folder_sizes[start_idx..], remaining_area, remaining_total_size);
+
+            let row_end = self.find_best_row(
+                &folder_sizes[start_idx..],
+                remaining_area,
+                remaining_total_size,
+            );
             let end_idx = start_idx + row_end;
 
             // calculate areas for this row
@@ -569,7 +572,7 @@ impl TreemapWidget {
         } as f64;
 
         // laying out horizontally
-        let row_width = row_pixel_area / side_length as f64;
+        let row_width = row_pixel_area / side_length;
         let min_pixel_area = (min_size as f64 / total_size as f64) * area_total;
         let max_pixel_area = (max_size as f64 / total_size as f64) * area_total;
 

@@ -132,9 +132,9 @@ where
     Ok(total_size)
 }
 
-fn scan_directory_fast(
-    dir_path: &Path,
-) -> Result<(u64, Vec<(PathBuf, u64)>), Box<dyn std::error::Error + Send>> {
+type ScanResult = Result<(u64, Vec<(PathBuf, u64)>), Box<dyn std::error::Error + Send>>;
+
+fn scan_directory_fast(dir_path: &Path) -> ScanResult {
     let mut total_size = 0u64;
     let mut children = Vec::new();
 
