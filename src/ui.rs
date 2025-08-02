@@ -16,7 +16,7 @@ pub fn update_progress_bar(bar: &mut frame::Frame, percentage: i32) {
         let filled_width = (total_width as f64 * percentage as f64 / 100.0).round() as i32;
 
         // draw background
-        draw::set_draw_color(enums::Color::from_u32(CATPPUCCIN_OVERLAY2));
+        draw::set_draw_color(enums::Color::from_u32(CATPPUCCIN_SURFACE0));
         draw::draw_rectf(b.x(), b.y(), total_width, b.h());
 
         // draw bar content
@@ -31,7 +31,7 @@ pub fn update_progress_bar(bar: &mut frame::Frame, percentage: i32) {
         }
 
         // draw border
-        draw::set_draw_color(enums::Color::from_u32(CATPPUCCIN_MANTLE));
+        draw::set_draw_color(enums::Color::from_u32(CATPPUCCIN_SURFACE1));
         draw::draw_rect(b.x(), b.y(), total_width, b.h());
     });
 

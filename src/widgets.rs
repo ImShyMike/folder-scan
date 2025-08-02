@@ -28,6 +28,7 @@ struct TreemapArea {
     y: i32,
     width: i32,
     height: i32,
+    size: u64,
 }
 
 struct TreemapData {
@@ -135,14 +136,10 @@ impl TreemapWidget {
             };
             set_font(Font::Helvetica, font_size);
 
-            // draw folder name with proper clipping
-            let text_x = rect.x + 4;
-            let text_y = rect.y + font_size + 4;
-
-            // ensure text stays within rectangle bounds
-            if text_x + 10 < rect.x + rect.width && text_y < rect.y + rect.height {
-                draw_text2(&rect.name, text_x, text_y, rect.width - 8, 0, Align::Left);
-            }
+            // draw text in the bottom right of the rectangle
+            let tx = rect.x + rect.width - 4;
+            let ty = rect.y + rect.height - 2;
+            draw_text2(&rect.name, tx, ty, 0, 0, Align::BottomRight);
         }
     }
 
@@ -387,6 +384,7 @@ impl TreemapWidget {
             y: self.widget.y(),
             width: self.widget.width(),
             height: self.widget.height(),
+            size: root.size,
         };
 
         self.layout_folder(root, area, 0, &mut rects);
@@ -405,8 +403,6 @@ impl TreemapWidget {
             return;
         }
 
-        let is_leaf = folder.children.is_empty();
-
         // add rectangle for this folder
         rects.push(TreemapRect {
             x: area.x,
@@ -419,11 +415,6 @@ impl TreemapWidget {
             depth,
             color: Self::get_color_for_depth(depth),
         });
-
-        // don't subdivide if it's a leaf or area is too small
-        if is_leaf || area.width < 20 || area.height < 20 {
-            return;
-        }
 
         // filter out zero-sized children and sort by size
         let mut valid_children: Vec<_> = folder
@@ -439,6 +430,11 @@ impl TreemapWidget {
         // sort children by size
         valid_children.sort_by(|a, b| b.size.cmp(&a.size));
 
+        let children_total_size: u64 = valid_children.iter().map(|child| child.size).sum();
+
+        // make children only take up space proportional to their size relative to the parent
+        let children_area_proportion = children_total_size as f64 / folder.size as f64;
+
         // add padding to prevent overlap
         let padding = 4;
         let padded_area = TreemapArea {
@@ -446,9 +442,31 @@ impl TreemapWidget {
             y: area.y + padding,
             width: (area.width - 2 * padding).max(1),
             height: (area.height - 2 * padding).max(1),
+            size: area.size,
         };
 
-        let child_areas = self.squarify_layout(&valid_children, padded_area);
+        // calculate the actual area children should occupy
+        let children_pixel_area =
+            (padded_area.width * padded_area.height) as f64 * children_area_proportion;
+
+        // determine child width based on aspect ratio
+        let chosen_size = if padded_area.width >= padded_area.height {
+            padded_area.height
+        } else {
+            padded_area.width
+        } as f64;
+
+        let child_width = (children_pixel_area / chosen_size) as i32;
+
+        let child_area = TreemapArea {
+            x: padded_area.x,
+            y: padded_area.y,
+            width: child_width.min(padded_area.width),
+            height: padded_area.height,
+            size: children_total_size,
+        };
+
+        let child_areas = self.squarify_layout(&valid_children, child_area);
 
         // recursively layout children
         for (child, child_area) in valid_children.iter().zip(child_areas.iter()) {
@@ -461,200 +479,203 @@ impl TreemapWidget {
             return Vec::new();
         }
 
-        let total_size: u64 = children.iter().map(|c| c.size).sum();
+        // calculate total size of all children
+        let total_size: u64 = children.iter().map(|child| child.size).sum();
         if total_size == 0 {
-            return vec![area; children.len()];
+            return Vec::new();
         }
 
-        // use squarified treemap algorithm for better aspect ratios
+        // get all of the children's sizes
+        let folder_sizes: Vec<u64> = children.iter().map(|child| child.size).collect();
+
         let mut areas = Vec::new();
-        let mut start = 0;
         let mut remaining_area = area;
+        let mut start_idx = 0;
 
-        while start < children.len() {
-            let (row_len, row) =
-                self.get_best_row_slice(&children[start..], remaining_area, total_size);
+        while start_idx < children.len() {
+            // calculate remaining total size for items that haven't been placed yet
+            let remaining_total_size: u64 = folder_sizes[start_idx..].iter().sum();
+            
+            let row_end =
+                self.find_best_row(&folder_sizes[start_idx..], remaining_area, remaining_total_size);
+            let end_idx = start_idx + row_end;
 
-            let row_areas = self.layout_row(row, remaining_area, total_size);
+            // calculate areas for this row
+            let row_areas = self.layout_row(
+                &folder_sizes[start_idx..end_idx],
+                remaining_area,
+                remaining_total_size,
+            );
             areas.extend(row_areas);
 
-            // update remaining area
-            if remaining_area.width >= remaining_area.height {
-                // horizontal split
-                let row_width = self.calculate_row_width(row, remaining_area, total_size);
-                remaining_area = TreemapArea {
-                    x: remaining_area.x + row_width,
-                    y: remaining_area.y,
-                    width: remaining_area.width - row_width,
-                    height: remaining_area.height,
-                };
-            } else {
-                // vertical split
-                let row_height = self.calculate_row_height(row, remaining_area, total_size);
-                remaining_area = TreemapArea {
-                    x: remaining_area.x,
-                    y: remaining_area.y + row_height,
-                    width: remaining_area.width,
-                    height: remaining_area.height - row_height,
-                };
-            }
-
-            start += row_len;
+            // update remaining area for next iteration
+            remaining_area = self.get_remaining_area(
+                remaining_area,
+                &folder_sizes[start_idx..end_idx],
+                remaining_total_size,
+            );
+            start_idx = end_idx;
         }
 
         areas
     }
 
-    fn get_best_row_slice<'a>(
-        &self,
-        children: &'a [&FolderNode],
-        area: TreemapArea,
-        total_size: u64,
-    ) -> (usize, &'a [&'a FolderNode]) {
-        if children.is_empty() {
-            return (0, &[]);
+    fn find_best_row(&self, sizes: &[u64], area: TreemapArea, total_size: u64) -> usize {
+        if sizes.is_empty() {
+            return 0;
         }
 
-        let mut best_len = 1;
-        let mut best_ratio = f64::INFINITY;
+        let mut best_count = 1;
+        let mut best_aspect_ratio = f64::INFINITY;
 
-        for i in 1..=children.len() {
-            let row = &children[..i];
-            let ratio = self.calculate_worst_ratio(row, area, total_size);
+        for count in 1..=sizes.len() {
+            let row_sum: u64 = sizes[..count].iter().sum();
+            let min_size = sizes[..count].iter().min().unwrap();
+            let max_size = sizes[..count].iter().max().unwrap();
 
-            if ratio < best_ratio {
-                best_ratio = ratio;
-                best_len = i;
+            let worst_aspect_ratio =
+                self.calculate_worst_ratio(row_sum, *min_size, *max_size, area, total_size);
+
+            if worst_aspect_ratio < best_aspect_ratio {
+                best_aspect_ratio = worst_aspect_ratio;
+                best_count = count;
             } else {
                 break;
             }
         }
 
-        (best_len, &children[..best_len])
+        best_count
     }
 
     fn calculate_worst_ratio(
         &self,
-        row: &[&FolderNode],
+        row_sum: u64,
+        min_size: u64,
+        max_size: u64,
         area: TreemapArea,
         total_size: u64,
     ) -> f64 {
-        if row.is_empty() {
-            return f64::INFINITY;
-        }
+        let is_horizontal = area.width >= area.height;
 
-        let row_size: u64 = row.iter().map(|c| c.size).sum();
-        let row_area =
-            (area.width as f64 * area.height as f64) * (row_size as f64 / total_size as f64);
+        // calculate the area proportions
+        let area_total = (area.width * area.height) as f64;
+        let row_area_proportion = row_sum as f64 / total_size as f64;
+        let row_pixel_area = area_total * row_area_proportion;
 
-        if row_area <= 0.0 {
-            return f64::INFINITY;
-        }
-
-        let side_length = if area.width >= area.height {
-            row_area / area.height as f64
+        let side_length = if is_horizontal {
+            area.height
         } else {
-            row_area / area.width as f64
-        };
+            area.width
+        } as f64;
 
-        if side_length <= 0.0 {
-            return f64::INFINITY;
-        }
+        // laying out horizontally
+        let row_width = row_pixel_area / side_length as f64;
+        let min_pixel_area = (min_size as f64 / total_size as f64) * area_total;
+        let max_pixel_area = (max_size as f64 / total_size as f64) * area_total;
 
-        let mut worst_ratio = 0.0f64;
-        for &child in row {
-            let child_area = row_area * (child.size as f64 / row_size as f64);
-            let child_side = child_area / side_length;
+        let min_opposite_side_length = min_pixel_area / row_width;
+        let max_opposite_side_length = max_pixel_area / row_width;
 
-            if child_side <= 0.0 {
-                continue;
-            }
-
-            let ratio = if side_length > child_side {
-                side_length / child_side
-            } else {
-                child_side / side_length
-            };
-
-            worst_ratio = worst_ratio.max(ratio);
-        }
-
-        worst_ratio
+        let aspect1 = row_width / min_opposite_side_length;
+        let aspect2 = max_opposite_side_length / row_width;
+        aspect1.max(aspect2)
     }
 
-    fn layout_row(
-        &self,
-        row: &[&FolderNode],
-        area: TreemapArea,
-        total_size: u64,
-    ) -> Vec<TreemapArea> {
-        let row_size: u64 = row.iter().map(|c| c.size).sum();
-        let mut areas = Vec::new();
+    fn layout_row(&self, sizes: &[u64], area: TreemapArea, total_size: u64) -> Vec<TreemapArea> {
+        let mut result = Vec::new();
 
-        if row_size == 0 {
-            return areas;
+        if sizes.is_empty() {
+            return result;
         }
 
-        let horizontal = area.width >= area.height;
-        let row_dimension = if horizontal {
-            self.calculate_row_width(row, area, total_size)
-        } else {
-            self.calculate_row_height(row, area, total_size)
-        };
+        let row_sum: u64 = sizes.iter().sum();
+        let is_horizontal = area.width >= area.height;
 
-        let mut offset = 0;
-        for &child in row {
-            let child_ratio = child.size as f64 / row_size as f64;
+        // calculate total area for this row based on proportional sizes
+        let area_total = (area.width * area.height) as f64;
+        let row_area_proportion = row_sum as f64 / total_size as f64;
+        let row_pixel_area = area_total * row_area_proportion;
 
-            let (child_area, child_offset) = if horizontal {
-                let child_height = (area.height as f64 * child_ratio) as i32;
-                let child_height = child_height.max(1).min(area.height - offset);
+        if is_horizontal {
+            // layout horizontally
+            let row_width = row_pixel_area / area.height as f64;
+            let mut current_y = area.y;
 
-                (
-                    TreemapArea {
+            for &size in sizes {
+                let size_proportion = size as f64 / row_sum as f64;
+                let rect_height = (size_proportion * area.height as f64) as i32;
+                let rect_height = rect_height.min(area.height - (current_y - area.y));
+
+                if rect_height > 0 {
+                    result.push(TreemapArea {
                         x: area.x,
-                        y: area.y + offset,
-                        width: row_dimension,
-                        height: child_height,
-                    },
-                    child_height,
-                )
-            } else {
-                let child_width = (area.width as f64 * child_ratio) as i32;
-                let child_width = child_width.max(1).min(area.width - offset);
+                        y: current_y,
+                        width: row_width as i32,
+                        height: rect_height,
+                        size,
+                    });
+                    current_y += rect_height;
+                }
+            }
+        } else {
+            // layout vertically
+            let row_height = row_pixel_area / area.width as f64;
+            let mut current_x = area.x;
 
-                (
-                    TreemapArea {
-                        x: area.x + offset,
+            for &size in sizes {
+                let size_proportion = size as f64 / row_sum as f64;
+                let rect_width = (size_proportion * area.width as f64) as i32;
+                let rect_width = rect_width.min(area.width - (current_x - area.x));
+
+                if rect_width > 0 {
+                    result.push(TreemapArea {
+                        x: current_x,
                         y: area.y,
-                        width: child_width,
-                        height: row_dimension,
-                    },
-                    child_width,
-                )
-            };
-
-            areas.push(child_area);
-            offset += child_offset;
+                        width: rect_width,
+                        height: row_height as i32,
+                        size,
+                    });
+                    current_x += rect_width;
+                }
+            }
         }
 
-        areas
+        result
     }
 
-    fn calculate_row_width(&self, row: &[&FolderNode], area: TreemapArea, total_size: u64) -> i32 {
-        let row_size: u64 = row.iter().map(|c| c.size).sum();
-        if total_size == 0 {
-            return area.width;
-        }
-        ((area.width as f64) * (row_size as f64 / total_size as f64)) as i32
-    }
+    fn get_remaining_area(
+        &self,
+        area: TreemapArea,
+        placed_sizes: &[u64],
+        total_size: u64,
+    ) -> TreemapArea {
+        let row_sum: u64 = placed_sizes.iter().sum();
+        let is_horizontal = area.width >= area.height;
 
-    fn calculate_row_height(&self, row: &[&FolderNode], area: TreemapArea, total_size: u64) -> i32 {
-        let row_size: u64 = row.iter().map(|c| c.size).sum();
-        if total_size == 0 {
-            return area.height;
+        // calculate how much area was used based on folder sizes
+        let area_total = (area.width * area.height) as f64;
+        let row_area_proportion = row_sum as f64 / total_size as f64;
+        let row_pixel_area = area_total * row_area_proportion;
+
+        if is_horizontal {
+            let used_width = (row_pixel_area / area.height as f64) as i32;
+            TreemapArea {
+                x: area.x + used_width,
+                y: area.y,
+                width: (area.width - used_width).max(0),
+                height: area.height,
+                size: area.size - row_sum,
+            }
+        } else {
+            let used_height = (row_pixel_area / area.width as f64) as i32;
+            TreemapArea {
+                x: area.x,
+                y: area.y + used_height,
+                width: area.width,
+                height: (area.height - used_height).max(0),
+                size: area.size - row_sum,
+            }
         }
-        ((area.height as f64) * (row_size as f64 / total_size as f64)) as i32
     }
 
     pub fn clear(&mut self) {

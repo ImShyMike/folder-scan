@@ -19,10 +19,6 @@ where
 {
     let start_time = std::time::Instant::now();
 
-    if let Some(callback) = &mut progress_callback {
-        callback(5, "Initializing scan...");
-    }
-
     let root_name = root_path
         .file_name()
         .unwrap_or_else(|| std::ffi::OsStr::new("root"))
@@ -31,22 +27,8 @@ where
 
     println!("Starting scan for: {}", root_path.to_string_lossy());
     let mut root_node = FolderNode::new(root_name, root_path.to_path_buf(), 0);
-
-    if let Some(callback) = &mut progress_callback {
-        callback(15, "Starting directory scan...");
-    }
-
     let total_size = fast_parallel_scan(&mut root_node, &mut progress_callback)?;
-
-    if let Some(callback) = &mut progress_callback {
-        callback(70, "Calculating thresholds...");
-    }
-
     let threshold = (total_size as f64 * THRESHOLD_FACTOR) as u64;
-
-    if let Some(callback) = &mut progress_callback {
-        callback(80, "Filtering hierarchy...");
-    }
 
     println!("Scan completed in {:?}", start_time.elapsed());
     println!(
@@ -61,10 +43,6 @@ where
     );
 
     filter_hierarchy(&mut root_node, threshold);
-
-    if let Some(callback) = &mut progress_callback {
-        callback(95, "Finalizing results...");
-    }
 
     Ok(root_node)
 }
@@ -115,7 +93,7 @@ where
     let path = parent_node.path.clone();
 
     if let Some(callback) = progress_callback {
-        callback(25, &format!("Scanning: {}", path.display()));
+        callback(20, &format!("Scanning: {}", path.display()));
     }
 
     // spawn worker thread for this directory
@@ -130,10 +108,6 @@ where
         .map_err(|e| -> Box<dyn std::error::Error> { e })?;
     parent_node.size = total_size;
 
-    if let Some(callback) = progress_callback {
-        callback(40, "Processing child directories...");
-    }
-
     // process children
     for (child_path, child_size) in children_data {
         let child_name = child_path
@@ -147,16 +121,12 @@ where
         // recursively scan big children
         if child_size > SCAN_THRESHOLD {
             if let Some(callback) = progress_callback {
-                callback(50, &format!("Deep scanning: {}", child_path.display()));
+                callback(80, &format!("Deep scanning: {}", child_path.display()));
             }
             fast_parallel_scan(&mut child_node, progress_callback)?;
         }
 
         parent_node.add_child(child_node);
-    }
-
-    if let Some(callback) = progress_callback {
-        callback(65, "Finalizing directory structure...");
     }
 
     Ok(total_size)

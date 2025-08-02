@@ -33,37 +33,34 @@ fn main() {
     wind.size_range(400, 400, 0, 0);
 
     // title text
-    let mut title = frame::Frame::new(20, 20, 860, 30, "Folder Scan");
-    title.set_label_size(18);
+    let mut title = frame::Frame::new(20, 10, 860, 30, "Folder Scan");
+    title.set_label_size(24);
     title.set_label_color(enums::Color::from_u32(CATPPUCCIN_LAVENDER));
     title.set_label_font(enums::Font::HelveticaBold);
 
     // progress value and bar
-    let progress = Rc::new(RefCell::new(frame::Frame::new(20, 70, 860, 30, "")));
+    let progress = Rc::new(RefCell::new(frame::Frame::new(20, 80, 860, 30, "")));
     progress.borrow_mut().set_frame(enums::FrameType::FlatBox);
-    progress
-        .borrow_mut()
-        .set_color(enums::Color::from_u32(CATPPUCCIN_OVERLAY2));
 
     // status text
     let status_text = Rc::new(RefCell::new(frame::Frame::new(
         20,
-        70,
+        50,
         860,
         30,
         "Select a folder...",
     )));
     status_text
         .borrow_mut()
-        .set_label_color(enums::Color::from_u32(CATPPUCCIN_BASE));
+        .set_label_color(enums::Color::from_u32(CATPPUCCIN_TEXT));
     status_text.borrow_mut().set_align(enums::Align::Center);
 
     // path chooser button
-    let mut button_picker = button::Button::new(285, 120, 140, 40, "Choose Folder");
+    let mut button_picker = button::Button::new(285, 125, 140, 40, "Choose Folder");
     style_button(&mut button_picker, CATPPUCCIN_LAVENDER);
 
     // scan button
-    let button_scan = Rc::new(RefCell::new(button::Button::new(475, 120, 140, 40, "Scan")));
+    let button_scan = Rc::new(RefCell::new(button::Button::new(475, 125, 140, 40, "Scan")));
     style_button(&mut button_scan.borrow_mut(), CATPPUCCIN_GREEN);
     button_scan
         .borrow_mut()
@@ -141,12 +138,6 @@ fn main() {
 
             match scan_folder_hierarchy(&path, Some(progress_callback)) {
                 Ok(mut tree) => {
-                    update_progress_bar(&mut progress_scan.borrow_mut(), 80);
-                    status_text_scan
-                        .borrow_mut()
-                        .set_label("Rendering treemap...");
-                    app::flush();
-
                     tree.sort_children();
                     treemap.borrow_mut().set_data(&tree);
 
