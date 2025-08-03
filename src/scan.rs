@@ -41,7 +41,7 @@ where
         callback(
             100,
             &format!(
-                "Scanned {} of files in {:.2} seconds!",
+                "Scanned {} in {:.2} seconds!",
                 format_size(total_size),
                 start_time.elapsed().as_secs_f64()
             ),
@@ -63,7 +63,7 @@ fn filter_hierarchy(node: &mut FolderNode, threshold: u64) {
     }
 }
 
-fn calculate_directory_size(dir_path: &Path) -> Result<u64, Box<dyn std::error::Error>> {
+pub fn calculate_directory_size(dir_path: &Path) -> Result<u64, Box<dyn std::error::Error>> {
     let mut total_size = 0u64;
 
     fn visit_dir(dir: &Path, total: &mut u64) -> Result<(), Box<dyn std::error::Error>> {
