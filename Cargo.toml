@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-fltk = "1.4"
-open = "5.3.2"
-rfd = "0.15.4"
+fltk = { version = "1.4", default-features = false }
+open = { version = "5.3.2", default-features = false }
+rfd = { version = "0.15.4", default-features = false, features = ["xdg-portal", "async-std"] }
 
 [profile.release]
 opt-level = "z"
