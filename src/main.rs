@@ -8,9 +8,9 @@ mod widgets;
 use fltk::{enums, prelude::*, *};
 use rfd::FileDialog;
 use std::cell::RefCell;
+use std::env;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::env;
 
 use scan::scan_folder_hierarchy;
 use theme::*;
@@ -49,16 +49,31 @@ fn main() {
     }));
 
     // progress bar styling
-    app_state.borrow_mut().progress.set_frame(enums::FrameType::FlatBox);
+    app_state
+        .borrow_mut()
+        .progress
+        .set_frame(enums::FrameType::FlatBox);
 
     // status text styling
-    app_state.borrow_mut().status_text.set_label_color(enums::Color::from_u32(CATPPUCCIN_TEXT));
-    app_state.borrow_mut().status_text.set_align(enums::Align::Center);
+    app_state
+        .borrow_mut()
+        .status_text
+        .set_label_color(enums::Color::from_u32(CATPPUCCIN_TEXT));
+    app_state
+        .borrow_mut()
+        .status_text
+        .set_align(enums::Align::Center);
 
     // scan button styling
     style_button(&mut app_state.borrow_mut().scan_button, CATPPUCCIN_GREEN);
-    app_state.borrow_mut().scan_button.set_color(enums::Color::from_u32(CATPPUCCIN_GREEN));
-    app_state.borrow_mut().scan_button.set_label_color(enums::Color::from_u32(CATPPUCCIN_BASE));
+    app_state
+        .borrow_mut()
+        .scan_button
+        .set_color(enums::Color::from_u32(CATPPUCCIN_GREEN));
+    app_state
+        .borrow_mut()
+        .scan_button
+        .set_label_color(enums::Color::from_u32(CATPPUCCIN_BASE));
     app_state.borrow_mut().scan_button.deactivate();
 
     // title text
@@ -120,7 +135,7 @@ fn main() {
             let text = format!("Selected: {}", state.selected_path.display());
             state.status_text.set_label(&text);
             state.scan_button.activate();
-            
+
             // schedule the scan to happen after the UI loop starts
             let state_weak = Rc::downgrade(&app_state);
             app::add_timeout3(0.1, move |_| {
@@ -147,7 +162,9 @@ fn handle_folder_select(state: &mut AppState) {
 fn handle_scan_button(state: &mut AppState) {
     let path = state.selected_path.clone();
     if !path.exists() || !path.is_dir() {
-        state.status_text.set_label("Please select a valid folder first!");
+        state
+            .status_text
+            .set_label("Please select a valid folder first!");
         return;
     }
 

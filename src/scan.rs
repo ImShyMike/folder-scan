@@ -74,11 +74,13 @@ pub fn calculate_directory_size(dir_path: &Path) -> Result<u64, Box<dyn std::err
             let entry = entry?;
             let path = entry.path();
 
-            if path.is_file() {
-                if let Ok(metadata) = entry.metadata() {
-                    *total += metadata.len();
-                }
-            } else if path.is_dir() {
+            // use metadata for checks (speeeeed)
+            // side effect is not following symlinks on unix
+            let metadata = entry.metadata()?;
+
+            if metadata.is_file() {
+                *total += metadata.len();
+            } else if metadata.is_dir() {
                 visit_dir(&path, total)?;
             }
         }
@@ -96,23 +98,13 @@ fn fast_parallel_scan<F>(
 where
     F: FnMut(i32, &str),
 {
-    let (tx, rx) = mpsc::channel();
-    let path = parent_node.path.clone();
-
     if let Some(callback) = progress_callback {
-        callback(20, &format!("Scanning: {}", path.display()));
+        callback(20, &format!("Scanning: {}", parent_node.path.display()));
     }
 
-    // spawn worker thread for this directory
-    thread::spawn(move || {
-        let result = scan_directory_fast(&path);
-        tx.send(result).unwrap();
-    });
-
     // get results
-    let (total_size, children_data) = rx
-        .recv()?
-        .map_err(|e| -> Box<dyn std::error::Error> { e })?;
+    let result = scan_directory_fast(&parent_node.path)?;
+    let (total_size, children_data) = result;
     parent_node.size = total_size;
 
     // process children
@@ -139,7 +131,7 @@ where
     Ok(total_size)
 }
 
-type ScanResult = Result<(u64, Vec<(PathBuf, u64)>), Box<dyn std::error::Error + Send>>;
+type ScanResult = Result<(u64, Vec<(PathBuf, u64)>), Box<dyn std::error::Error>>;
 
 fn scan_directory_fast(dir_path: &Path) -> ScanResult {
     let mut total_size = 0u64;
@@ -147,9 +139,9 @@ fn scan_directory_fast(dir_path: &Path) -> ScanResult {
 
     // read directory entries in one go
     let entries: Vec<_> = fs::read_dir(dir_path)
-        .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send>)?
+        .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send>)?;
+        .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
 
     // process files first
     let mut file_size = 0u64;
@@ -161,7 +153,6 @@ fn scan_directory_fast(dir_path: &Path) -> ScanResult {
             if let Ok(metadata) = entry.metadata() {
                 file_size += metadata.len();
             }
-            // TODO: set progress bar based on current child vs total
         } else if path.is_dir() {
             directories.push(path);
         }

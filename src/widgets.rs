@@ -4,7 +4,6 @@ use fltk::{prelude::*, *};
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
-use open;
 
 use crate::folder::FolderNode;
 use crate::theme::*;
