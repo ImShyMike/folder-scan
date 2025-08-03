@@ -9,6 +9,7 @@ pub struct FolderNode {
 }
 
 impl FolderNode {
+    #[inline]
     pub fn new(name: String, path: PathBuf, size: u64) -> Self {
         Self {
             name,
@@ -18,6 +19,7 @@ impl FolderNode {
         }
     }
 
+    #[inline(always)]
     pub fn add_child(&mut self, child: FolderNode) {
         self.children.push(child);
     }

@@ -172,6 +172,7 @@ impl TreemapWidget {
         highlighted
     }
 
+    #[inline(always)]
     fn is_rect_inside(inner: &TreemapRect, outer: &TreemapRect) -> bool {
         inner.x >= outer.x
             && inner.y >= outer.y
@@ -354,6 +355,7 @@ impl TreemapWidget {
         }
     }
 
+    #[inline]
     pub fn handle_resize(&mut self) {
         self.recalculate_layout();
         self.widget.redraw();
@@ -692,6 +694,7 @@ impl TreemapWidget {
         self.widget.redraw();
     }
 
+    #[inline(always)]
     fn get_color_for_depth(depth: u32) -> Color {
         match depth % 6 {
             0 => Color::from_hex(CATPPUCCIN_BLUE),

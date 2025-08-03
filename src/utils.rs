@@ -1,5 +1,6 @@
 const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
 
+#[inline(always)]
 pub fn format_size(bytes: u64) -> String {
     let mut size = bytes as f64;
     let mut unit_index = 0;

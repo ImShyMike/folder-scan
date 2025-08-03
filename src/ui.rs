@@ -2,6 +2,7 @@ use fltk::{prelude::*, *};
 
 use crate::theme::*;
 
+#[inline]
 pub fn style_button(btn: &mut button::Button, color: u32) {
     btn.set_color(enums::Color::from_u32(CATPPUCCIN_SURFACE1));
     btn.set_selection_color(enums::Color::from_u32(color).darker());

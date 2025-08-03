@@ -53,6 +53,7 @@ where
     Ok(root_node)
 }
 
+#[inline]
 fn filter_hierarchy(node: &mut FolderNode, threshold: u64) {
     // remove children below threshold
     node.children.retain(|child| child.size >= threshold);
