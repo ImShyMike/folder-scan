@@ -37,7 +37,7 @@ fn main() {
     let mut wind = window::Window::new(100, 100, 900, 900, "folder-scan");
     wind.set_color(enums::Color::from_u32(CATPPUCCIN_BASE));
     wind.make_resizable(true);
-    wind.size_range(400, 400, 0, 0);
+    wind.size_range(675, 400, 0, 0);
 
     // create shared state
     let app_state = Rc::new(RefCell::new(AppState {
