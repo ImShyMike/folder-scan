@@ -6,6 +6,22 @@ Simple, lightweigth and blazingly fast folder scanner with a tree-like visualiza
 
 ---
 
+## Usage
+
+The program can be lanched with a path argument to automatically scan that folder.
+
+```bash
+$ folder-scan
+or
+$ folder-scan /abc/foo
+```
+
+## Optimizations
+
+Rust with FLTK was the chosen tech stack as it has a very light memory footprint and amazing speed.
+
+The program leverages cache-friendly data structures to store the scanned folder tree, fan-out/fan-in concurrency alongside a message passing concurrency model to handle multithreading for faster speeds at a low memory cost and threshold-based optimization while scanning to prune and avoid scanning very small folders.
+
 ## Benchmarks
 
 > All tests were done using Arch Linux and may differ on Windows
