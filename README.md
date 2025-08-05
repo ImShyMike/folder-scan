@@ -10,7 +10,7 @@ Simple, lightweigth and blazingly fast folder scanner with a tree-like visualiza
 
 The program can be lanched with a path argument to automatically scan that folder.
 
-```bash
+```sh
 $ folder-scan
 or
 $ folder-scan /abc/foo
