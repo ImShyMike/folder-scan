@@ -24,7 +24,7 @@ The program leverages cache-friendly data structures to store the scanned folder
 
 ## Benchmarks
 
-> All tests were done using Arch Linux and may differ on Windows
+> All tests were done using Arch Linux (with an SSD) and may differ on Windows (as some functions change behaviour when used on windows)
 
 The idle memory usage on startup is about 11 MB.
 
