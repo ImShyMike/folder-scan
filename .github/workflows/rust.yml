@@ -16,5 +16,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Install Wayland dependencies
+      run: sudo apt update && sudo apt install -y libwayland-dev pkg-config
+    
     - name: Build
       run: cargo build --verbose
