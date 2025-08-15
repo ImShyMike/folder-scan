@@ -2,6 +2,10 @@
 name = "folder-scan"
 version = "0.2.0"
 edition = "2024"
+license-file = "LICENSE"
+repository = "https://github.com/ImShyMike/folder-scan"
+description = "Simple, lightweigth and blazingly fast folder scanner with a tree-like visualization that can be used to find space hogs"
+readme = "README.md"
 
 [dependencies]
 fltk = { version = "1.4", default-features = false }
